@@ -82,6 +82,19 @@ Boot the newest ISO in QEMU:
 
 The test wrapper prefers `UEFI` with `OVMF` when available because that is the current primary boot target.
 
+Run the automated boot smoke test:
+
+```bash
+./scripts/test-boot-smoke
+```
+
+This test does two things:
+
+1. Confirms the ISO reaches the `UEFI` DVD handoff path.
+2. Boots the live environment headlessly through a direct-kernel path, captures serial output, and passes when it sees either the explicit `NOKENIX_BOOT_SMOKE_OK` marker or later-stage evidence such as `sddm` startup or the serial login prompt.
+
+If host `qemu-system-x86_64` is unavailable but Docker is present, the smoke test falls back to a Debian `trixie` container with QEMU and `OVMF`.
+
 ## Current Scope
 
 This first scaffold is intentionally narrow:

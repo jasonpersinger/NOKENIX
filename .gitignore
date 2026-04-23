@@ -10,6 +10,8 @@
 /build/stages/
 /build/tmp/
 /build/build.log
+/build/boot-smoke.log
+/build/boot-smoke-uefi.log
 /build/*.contents
 /build/*.hybrid.iso
 /build/*.iso

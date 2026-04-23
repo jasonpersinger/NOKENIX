@@ -1,0 +1,11 @@
+[Unit]
+Description=Emit a serial marker when the live desktop reaches graphical boot
+After=display-manager.service
+ConditionPathExists=/dev/ttyS0
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/systemctl is-active --quiet sddm.service && printf "%s\n" "NOKENIX_BOOT_SMOKE_OK" > /dev/ttyS0 || true'
+
+[Install]
+WantedBy=graphical.target

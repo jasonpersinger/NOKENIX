@@ -14,6 +14,7 @@ This is the future release gate for NOKENIX. It starts simple on purpose.
 ## VM Smoke Test
 
 - ISO boots to the live environment
+- Automated boot smoke test passes with either the explicit serial marker or the documented fallback success indicators
 - Desktop session reaches `KDE Plasma`
 - User can open system settings and file manager
 - Shutdown and reboot work

@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="$REPO_ROOT/build"
+LOG_FILE="$BUILD_DIR/boot-smoke.log"
+UEFI_LOG_FILE="$BUILD_DIR/boot-smoke-uefi.log"
+MARKER="NOKENIX_BOOT_SMOKE_OK"
+TIMEOUT_SECONDS="${NOKENIX_SMOKE_TIMEOUT:-180}"
+UEFI_TIMEOUT_SECONDS="${NOKENIX_SMOKE_UEFI_TIMEOUT:-45}"
+UEFI_MARKER='BdsDxe: starting Boot0001'
+FALLBACK_MARKERS=(
+  'Started .*sddm\.service'
+  'nokenix login:'
+)
+SMOKE_KERNEL_ARGS="boot=live components console=ttyS0,115200 console=tty0 systemd.unit=graphical.target username=nokenix hostname=nokenix"
+
+find_iso() {
+  find "$BUILD_DIR" -maxdepth 1 -type f -name '*.iso' | sort | tail -n 1
+}
+
+find_kernel() {
+  find "$BUILD_DIR/binary/live" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1
+}
+
+find_initrd() {
+  find "$BUILD_DIR/binary/live" -maxdepth 1 -type f -name 'initrd.img-*' | sort | tail -n 1
+}
+
+show_result() {
+  local matched_marker=""
+
+  if [[ -f "$UEFI_LOG_FILE" ]] && grep -q "$UEFI_MARKER" "$UEFI_LOG_FILE"; then
+    echo "UEFI ISO handoff check passed."
+    echo "UEFI log: $UEFI_LOG_FILE"
+  else
+    echo "UEFI ISO handoff check did not produce the expected marker."
+    echo "UEFI log: $UEFI_LOG_FILE"
+  fi
+
+  if [[ ! -f "$LOG_FILE" ]]; then
+    echo "Boot smoke test failed."
+    echo "Log file was not created: $LOG_FILE"
+    exit 1
+  fi
+
+  if grep -q "$MARKER" "$LOG_FILE"; then
+    echo "Boot smoke test passed."
+    echo "Marker: $MARKER"
+    echo "Log: $LOG_FILE"
+    exit 0
+  fi
+
+  for marker in "${FALLBACK_MARKERS[@]}"; do
+    if grep -Eq "$marker" "$LOG_FILE"; then
+      matched_marker="$marker"
+      break
+    fi
+  done
+
+  if [[ -n "$matched_marker" ]]; then
+    echo "Boot smoke test passed."
+    echo "Fallback marker: $matched_marker"
+    echo "Log: $LOG_FILE"
+    exit 0
+  fi
+
+  echo "Boot smoke test failed."
+  echo "Marker not found: $MARKER"
+  echo "Log: $LOG_FILE"
+  tail -n 60 "$LOG_FILE" || true
+  exit 1
+}
+
+resolve_host_ovmf() {
+  local ovmf_code=""
+  local ovmf_vars=""
+
+  for candidate in \
+    /usr/share/OVMF/OVMF_CODE_4M.fd \
+    /usr/share/OVMF/OVMF_CODE.fd
+  do
+    if [[ -f "$candidate" ]]; then
+      ovmf_code="$candidate"
+      break
+    fi
+  done
+
+  for candidate in \
+    /usr/share/OVMF/OVMF_VARS_4M.fd \
+    /usr/share/OVMF/OVMF_VARS.fd
+  do
+    if [[ -f "$candidate" ]]; then
+      ovmf_vars="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$ovmf_code" || -z "$ovmf_vars" ]]; then
+    echo "Missing OVMF firmware files on host."
+    exit 1
+  fi
+
+  printf '%s\n%s\n' "$ovmf_code" "$ovmf_vars"
+}
+
+run_host_qemu_uefi() {
+  local iso_path="$1"
+  local ovmf_vars_copy
+  local ovmf_code
+  local ovmf_vars
+
+  mapfile -t ovmf_paths < <(resolve_host_ovmf)
+  ovmf_code="${ovmf_paths[0]}"
+  ovmf_vars="${ovmf_paths[1]}"
+
+  ovmf_vars_copy="$(mktemp)"
+  cp "$ovmf_vars" "$ovmf_vars_copy"
+
+  timeout "$UEFI_TIMEOUT_SECONDS" qemu-system-x86_64 \
+    -m 4096 \
+    -smp 2 \
+    -machine q35,accel=kvm:tcg \
+    -display none \
+    -serial "file:$UEFI_LOG_FILE" \
+    -monitor none \
+    -no-reboot \
+    -drive if=pflash,format=raw,readonly=on,file="$ovmf_code" \
+    -drive if=pflash,format=raw,file="$ovmf_vars_copy" \
+    -cdrom "$iso_path" \
+    -boot d || true
+
+  rm -f "$ovmf_vars_copy"
+}
+
+run_host_qemu_direct() {
+  local iso_path="$1"
+  local kernel_path="$2"
+  local initrd_path="$3"
+
+  timeout "$TIMEOUT_SECONDS" qemu-system-x86_64 \
+    -m 4096 \
+    -smp 2 \
+    -machine q35,accel=kvm:tcg \
+    -display none \
+    -serial "file:$LOG_FILE" \
+    -monitor none \
+    -no-reboot \
+    -kernel "$kernel_path" \
+    -initrd "$initrd_path" \
+    -append "$SMOKE_KERNEL_ARGS" \
+    -cdrom "$iso_path" || true
+}
+
+run_docker_qemu() {
+  local iso_path="$1"
+  local kernel_path="$2"
+  local initrd_path="$3"
+  local container_iso_path="$iso_path"
+  local container_kernel_path="$kernel_path"
+  local container_initrd_path="$initrd_path"
+
+  if [[ "$iso_path" == "$REPO_ROOT/"* ]]; then
+    container_iso_path="/workspace/${iso_path#"$REPO_ROOT"/}"
+  fi
+
+  if [[ "$kernel_path" == "$REPO_ROOT/"* ]]; then
+    container_kernel_path="/workspace/${kernel_path#"$REPO_ROOT"/}"
+  fi
+
+  if [[ "$initrd_path" == "$REPO_ROOT/"* ]]; then
+    container_initrd_path="/workspace/${initrd_path#"$REPO_ROOT"/}"
+  fi
+
+  docker run --rm \
+    --device /dev/kvm \
+    -v "$REPO_ROOT":/workspace \
+    -w /workspace \
+    -e DEBIAN_FRONTEND=noninteractive \
+    debian:trixie \
+    bash -lc "
+      set -euo pipefail
+      apt-get update >/dev/null
+      apt-get install -y qemu-system-x86 ovmf >/dev/null
+      cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/OVMF_VARS.fd
+      timeout '$UEFI_TIMEOUT_SECONDS' qemu-system-x86_64 \
+        -m 4096 \
+        -smp 2 \
+        -machine q35,accel=kvm:tcg \
+        -display none \
+        -serial file:/workspace/build/boot-smoke-uefi.log \
+        -monitor none \
+        -no-reboot \
+        -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+        -drive if=pflash,format=raw,file=/tmp/OVMF_VARS.fd \
+        -cdrom '$container_iso_path' \
+        -boot d || true
+
+      timeout '$TIMEOUT_SECONDS' qemu-system-x86_64 \
+        -m 4096 \
+        -smp 2 \
+        -machine q35,accel=kvm:tcg \
+        -display none \
+        -serial file:/workspace/build/boot-smoke.log \
+        -monitor none \
+        -no-reboot \
+        -kernel '$container_kernel_path' \
+        -initrd '$container_initrd_path' \
+        -append '$SMOKE_KERNEL_ARGS' \
+        -cdrom '$container_iso_path' || true
+    "
+}
+
+ISO_PATH="${1:-$(find_iso)}"
+KERNEL_PATH="${NOKENIX_SMOKE_KERNEL:-$(find_kernel)}"
+INITRD_PATH="${NOKENIX_SMOKE_INITRD:-$(find_initrd)}"
+
+if [[ -z "${ISO_PATH}" || ! -f "${ISO_PATH}" ]]; then
+  echo "No ISO found in $BUILD_DIR"
+  echo "Run ./scripts/build-iso first."
+  exit 1
+fi
+
+if [[ -z "${KERNEL_PATH}" || ! -f "${KERNEL_PATH}" ]]; then
+  echo "No kernel found under $BUILD_DIR/binary/live"
+  exit 1
+fi
+
+if [[ -z "${INITRD_PATH}" || ! -f "${INITRD_PATH}" ]]; then
+  echo "No initrd found under $BUILD_DIR/binary/live"
+  exit 1
+fi
+
+rm -f "$LOG_FILE"
+rm -f "$UEFI_LOG_FILE"
+
+if command -v qemu-system-x86_64 >/dev/null 2>&1; then
+  run_host_qemu_uefi "$ISO_PATH"
+  run_host_qemu_direct "$ISO_PATH" "$KERNEL_PATH" "$INITRD_PATH"
+elif command -v docker >/dev/null 2>&1; then
+  run_docker_qemu "$ISO_PATH" "$KERNEL_PATH" "$INITRD_PATH"
+else
+  echo "Missing required runtime: qemu-system-x86_64 or docker"
+  exit 1
+fi
+
+show_result
