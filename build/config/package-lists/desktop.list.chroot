@@ -1,1 +1,13 @@
-live-task-kde
+# First ISO target: a controlled Plasma desktop, not Debian's full live task.
+kde-plasma-desktop
+sddm
+network-manager
+plasma-nm
+dolphin
+konsole
+kate
+gwenview
+okular
+ark
+firefox-esr
+sudo

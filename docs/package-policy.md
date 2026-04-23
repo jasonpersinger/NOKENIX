@@ -10,7 +10,7 @@ The goal is to keep the image useful, offline-capable, and maintainable without 
 
 - Debian base: `trixie`
 - Archive area: `main` only
-- Desktop baseline: `live-task-kde`
+- Desktop baseline: explicit Plasma package manifest in `build/config/package-lists/desktop.list.chroot`
 - Backports: not enabled by default
 - Custom package repository: not yet in use
 
@@ -57,4 +57,4 @@ Backports should not become the default answer to every newer-package request. I
 
 ## Near-Term Goal
 
-Turn the current `live-task-kde` baseline into a first explicit default package manifest with a short rationale for each category.
+Turn the current Plasma baseline into a reviewed default package manifest with a short rationale for each category.

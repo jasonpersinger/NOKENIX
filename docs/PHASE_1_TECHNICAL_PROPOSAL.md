@@ -107,7 +107,7 @@ NOKENIX/
 - `build/` holds the actual distro build inputs.
 - `build/auto/` stores the canonical `lb config` and cleanup entrypoints.
 - `build/config/` is the live-build configuration tree.
-- `build/config/package-lists/` should remain plain and readable.
+- `build/config/package-lists/` should remain plain and readable and should prefer explicit curated manifests over broad task packages when image size and control matter.
 - `build/config/includes.chroot/` is for files that belong inside the live filesystem.
 - `build/config/includes.binary/` is for files copied into the ISO outside the chroot.
 - `build/config/hooks/` is for the few steps that cannot be expressed cleanly as package lists or static file includes.

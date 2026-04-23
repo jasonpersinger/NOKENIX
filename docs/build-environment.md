@@ -39,6 +39,12 @@ sudo apt install live-build git qemu-system-x86 ovmf
 
 This is intentionally small. Add more packages only when the build or test workflow proves they are needed.
 
+## Non-Canonical Host Fallback
+
+If you are not on Debian but do have Docker available, `./scripts/build-iso` will fall back to a privileged Debian `trixie` container and run the same `live-build` workflow there.
+
+That fallback is for convenience. The canonical documented environment is still a clean Debian `stable` VM.
+
 ## Repository Workflow
 
 Clone the repo and enter it:
@@ -64,7 +70,7 @@ What this does:
 4. Runs `lb build`
 5. Stores a build log at `build/build.log`
 
-The current package manifest is intentionally minimal and starts from Debian's `live-task-kde` metapackage rather than a large custom application suite.
+The current package manifest is intentionally minimal and uses an explicit Plasma desktop package set so the first ISO target stays controlled.
 
 ## Smoke Test Workflow
 

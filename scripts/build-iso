@@ -4,19 +4,45 @@ set -euo pipefail
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build"
 LOG_FILE="$BUILD_DIR/build.log"
+DOCKER_IMAGE="debian:trixie"
+
+run_local_build() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    exec sudo "$0" "$@"
+  fi
+
+  cd "$BUILD_DIR"
+
+  lb clean
+  lb config
+  lb build "$@" 2>&1 | tee "$LOG_FILE"
+}
+
+run_docker_build() {
+  docker run --rm --privileged \
+    -v "$REPO_ROOT":/workspace \
+    -w /workspace/build \
+    -e DEBIAN_FRONTEND=noninteractive \
+    "$DOCKER_IMAGE" \
+    bash -lc '
+      set -euo pipefail
+      apt-get update
+      apt-get install -y live-build ca-certificates
+      lb clean
+      lb config
+      lb build "$@"
+    ' bash "$@" 2>&1 | tee "$LOG_FILE"
+}
 
 if ! command -v lb >/dev/null 2>&1; then
+  if command -v docker >/dev/null 2>&1; then
+    run_docker_build "$@"
+    exit 0
+  fi
+
   echo "Missing required command: lb"
-  echo "Install live-build first."
+  echo "Install live-build locally or use a host with Docker available."
   exit 1
 fi
 
-if [[ "${EUID}" -ne 0 ]]; then
-  exec sudo "$0" "$@"
-fi
-
-cd "$BUILD_DIR"
-
-lb clean
-lb config
-lb build "$@" 2>&1 | tee "$LOG_FILE"
+run_local_build "$@"
