@@ -1,48 +1,88 @@
-1. Think Before Coding
-Don't assume. Don't hide confusion. Surface tradeoffs.
+# NOKENIX
 
-Before implementing:
+NOKENIX is a community Linux distribution project based in Roanoke, Virginia.
 
-State your assumptions explicitly. If uncertain, ask.
-If multiple interpretations exist, present them - don't pick silently.
-If a simpler approach exists, say so. Push back when warranted.
-If something is unclear, stop. Name what's confusing. Ask.
-2. Simplicity First
-Minimum code that solves the problem. Nothing speculative.
+The project goal is straightforward: build a Debian-based desktop distro that feels polished and distinct, stays approachable for new Linux users, remains comfortable for intermediate users, and can realistically be maintained by a small volunteer club.
 
-No features beyond what was asked.
-No abstractions for single-use code.
-No "flexibility" or "configurability" that wasn't requested.
-No error handling for impossible scenarios.
-If you write 200 lines and it could be 50, rewrite it.
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+## Current Direction
 
-3. Surgical Changes
-Touch only what you must. Clean up only your own mess.
+- Base: Debian `stable`, currently pinned to `trixie`
+- Desktop: `KDE Plasma`
+- Architecture: `amd64`
+- Software policy: free software only for the initial release direction
+- Character: beginner-to-intermediate friendly, daily-driver oriented, Debian-first
 
-When editing existing code:
+NOKENIX is intentionally not trying to be a custom kernel distro, an experimental platform, or a large fork of Debian internals. The project’s identity is expected to come from branding, defaults, curation, and out-of-box experience rather than low-level divergence.
 
-Don't "improve" adjacent code, comments, or formatting.
-Don't refactor things that aren't broken.
-Match existing style, even if you'd do it differently.
-If you notice unrelated dead code, mention it - don't delete it.
-When your changes create orphans:
+## Project Status
 
-Remove imports/variables/functions that YOUR changes made unused.
-Don't remove pre-existing dead code unless asked.
-The test: Every changed line should trace directly to the user's request.
+The repository is in early build and planning stage, but it is already past the “idea only” phase.
 
-4. Goal-Driven Execution
-Define success criteria. Loop until verified.
+What exists today:
 
-Transform tasks into verifiable goals:
+- Core project context and decisions
+- A `live-build`-based ISO scaffold
+- A documented canonical build environment
+- A first bootable live ISO path
+- Automated boot smoke testing in QEMU
+- Early branding work and visual system drafts
 
-"Add validation" → "Write tests for invalid inputs, then make them pass"
-"Fix the bug" → "Write a test that reproduces it, then make it pass"
-"Refactor X" → "Ensure tests pass before and after"
-For multi-step tasks, state a brief plan:
+What is not finished yet:
 
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+- Installer integration
+- Final default application suite
+- Final branding assets
+- Release cadence and versioning
+- CI pipeline
+
+## Build The Current ISO
+
+The canonical build environment is a clean Debian `stable` VM.
+
+From the project root:
+
+```bash
+./scripts/build-iso
+```
+
+To run the current smoke tests:
+
+```bash
+./scripts/test-iso
+./scripts/test-boot-smoke
+```
+
+If `live-build` is not available locally but Docker is installed, `./scripts/build-iso` can fall back to a privileged Debian `trixie` container. That fallback is for convenience; the documented primary path is still Debian `stable`.
+
+## Repository Layout
+
+- [PROJECT_CONTEXT.md](/home/jason/NOKENIX/PROJECT_CONTEXT.md): foundational project context
+- [DECISIONS.md](/home/jason/NOKENIX/DECISIONS.md): accepted, proposed, and open decisions
+- [ROADMAP.md](/home/jason/NOKENIX/ROADMAP.md): phased project plan
+- [docs/build-environment.md](/home/jason/NOKENIX/docs/build-environment.md): build and test workflow
+- [docs/package-policy.md](/home/jason/NOKENIX/docs/package-policy.md): current packaging guardrails
+- [docs/release-checklist.md](/home/jason/NOKENIX/docs/release-checklist.md): release gate
+- [build/README.md](/home/jason/NOKENIX/build/README.md): build directory notes
+- [scripts](/home/jason/NOKENIX/scripts): helper scripts for build and test work
+
+## Principles
+
+The current project direction is guided by a few simple constraints:
+
+- Stay close to Debian unless divergence is clearly worth the maintenance cost
+- Prefer simple, reproducible tooling over clever infrastructure
+- Aim for a polished desktop experience without building unnecessary custom internals
+- Keep the project maintainable by a small volunteer team
+
+## Contributing
+
+Contributions are welcome, especially in these areas:
+
+- build and installer work
+- package curation
+- testing in VMs and on real hardware
+- documentation
+- branding, wallpapers, boot assets, and desktop polish
+
+Start with [CONTRIBUTING.md](/home/jason/NOKENIX/CONTRIBUTING.md).
+
