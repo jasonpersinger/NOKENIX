@@ -1,8 +1,10 @@
 /build/.build
 /build/.lock
 /build/binary/
+/build/binary.modified_timestamps
 /build/cache/
 /build/chroot/
+/build/chroot.files
 /build/local/
 /build/source/
 /build/stages/
@@ -22,6 +24,10 @@
 /build/chroot.installed_tmp_pkgs
 /build/chroot.packages.live
 /build/chroot.packages.install
+/build/live-image-amd64.contents
+/build/live-image-amd64.files
+/build/live-image-amd64.hybrid.iso
+/build/live-image-amd64.packages
 /build/config/apt
 /build/config/archives
 /build/config/binary
