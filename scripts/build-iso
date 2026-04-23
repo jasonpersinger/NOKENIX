@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="$REPO_ROOT/build"
+LOG_FILE="$BUILD_DIR/build.log"
+
+if ! command -v lb >/dev/null 2>&1; then
+  echo "Missing required command: lb"
+  echo "Install live-build first."
+  exit 1
+fi
+
+if [[ "${EUID}" -ne 0 ]]; then
+  exec sudo "$0" "$@"
+fi
+
+cd "$BUILD_DIR"
+
+lb clean
+lb config
+lb build "$@" 2>&1 | tee "$LOG_FILE"
